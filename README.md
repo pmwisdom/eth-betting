@@ -2,4 +2,6 @@
 
 Was following this tutorial here https://medium.com/ethereum-developers/the-ultimate-end-to-end-tutorial-to-create-and-deploy-a-fully-descentralized-dapp-in-ethereum-18f0cf6d7e0e.
 
+The code there was from 3 years ago so it doesn't necessarily place nice with recent solidty versions.
+
 Altered it to work with more recent versions of solidity and adding manual truffle tests to get comfortable with them so remix ide is not required.
