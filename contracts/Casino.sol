@@ -7,6 +7,7 @@ contract Casino {
     uint256 public numberOfBets;
     uint256 public maxAmountOfBets = 2;
     address payable[] public players;
+    uint256 testWinningNumber = 0;
 
     string public name;
 
@@ -51,7 +52,9 @@ contract Casino {
         players.push(msg.sender);
         totalBet += msg.value;
 
-        if (numberOfBets >= maxAmountOfBets) generateNumberWinner();
+        // Removed this so we could manually trigger the completion of betting
+        // for better testing
+        // if (numberOfBets >= maxAmountOfBets) generateNumberWinner();
     }
 
     function checkPlayerExists(address player) public view returns (bool) {
@@ -67,9 +70,28 @@ contract Casino {
         return false;
     }
 
-    function generateNumberWinner() public {
+    function generateNumberWinner() public view returns (uint256) {
         uint256 numberGenerated = (block.number % 10) + 1; // This isn't secure
-        distributePrizes(numberGenerated);
+        return numberGenerated;
+    }
+
+    function completeBettingRound() public {
+        require(msg.sender == owner);
+
+        if (testWinningNumber > 0) {
+            distributePrizes(testWinningNumber);
+        } else {
+            uint256 generated = generateNumberWinner();
+            distributePrizes(generated);
+        }
+    }
+
+    function setTestWinningNumber(uint256 winningNumber) public {
+        require(msg.sender == owner);
+
+        // Should protect this by checking what environment we are in
+        // (Only enable to run if in test environment)
+        testWinningNumber = winningNumber;
     }
 
     // Sends the corresponding ether to each winner depending on the total bets

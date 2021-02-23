@@ -1,5 +1,7 @@
 const Casino = artifacts.require("Casino");
-const web3 = require("web3");
+const Web3 = require("web3");
+
+const etherBetAmount = web3.utils.toWei("0.3", "ether");
 
 /*
  * uncomment accounts to access the test accounts made available by the
@@ -7,83 +9,76 @@ const web3 = require("web3");
  * See docs: https://www.trufflesuite.com/docs/truffle/testing/writing-tests-in-javascript
  */
 contract("Casino", function (accounts) {
-  afterEach(() => {});
+  let instance;
+  const [ownerAccount, ...playerAccounts] = accounts;
+  const accountsWithBets = playerAccounts.map((account, i) => ({
+    from: account,
+    value: etherBetAmount,
+    number: i + 1,
+  }));
+
+  let web3;
+
+  before(async () => {
+    instance = await Casino.deployed();
+    web3 = new Web3("http://127.0.0.1:8545");
+  });
 
   it("Should Construct a valid Casino contract", async function () {
-    const instance = await Casino.deployed();
     const name = await instance.getName();
 
     assert.equal(name, "Casino");
   });
 
   it("Should return a list of accounts", () => {
-    console.log("Accounts", accounts);
-
     return assert.isTrue(accounts.length > 0);
   });
 
-  it("Should let a player bet", async () => {
-    const account1 = accounts[0];
+  it("Should let all players bet", async () => {
+    // Speed this up by running in parallel
+    for (betInfo of accountsWithBets) {
+      const { number, ...rest } = betInfo;
 
-    const instance = await Casino.deployed();
-    const amountBet = web3.utils.toWei("0.3", "ether");
+      await instance.bet(number, rest);
+    }
 
-    await instance.bet(2, {
-      from: account1,
-      value: web3.utils.toWei("0.3", "ether"),
-    });
+    const firstPlayer = playerAccounts[0];
 
     const player = await instance.players(0);
-    const playerInfo = await instance.playerInfo.call(account1);
+    const playerInfo = await instance.playerInfo.call(firstPlayer);
     const returnedNumSelected = playerInfo["numberSelected"]["words"][0];
+    const allPlayingAccounts = await instance.getPlayers();
 
-    assert.isTrue(player === account1);
-    assert.isTrue(returnedNumSelected === 2);
+    assert.equal(player, firstPlayer);
+    assert.equal(returnedNumSelected, 1);
+    assert.equal(allPlayingAccounts.length, playerAccounts.length);
   });
 
   it("Should not let a player bet twice", async () => {
-    const account1 = accounts[0];
-
-    const instance = await Casino.deployed();
-    const amountBet = web3.utils.toWei("0.3", "ether");
-
-    console.log("HELLO", await instance.getPlayers());
+    const { number, ...rest } = accountsWithBets[0];
 
     try {
-      await instance.bet(2, {
-        from: account1,
-        value: amountBet,
-      });
-      assert.isTrue(false);
-    } catch (err) {}
-
-    const player = await instance.players(0);
-    const playerInfo = await instance.playerInfo.call(account1);
-    const returnedNumSelected = playerInfo["numberSelected"]["words"][0];
-
-    assert.isTrue(player === account1);
-    assert.isTrue(returnedNumSelected === 2);
+      await instance.bet(number, rest);
+      assert.fail("Betting Player played twice");
+    } catch (err) {
+      assert.isOk(err, "Player could not bet");
+    }
   });
 
-  it("Should let a second player bet", async () => {
-    const account2 = accounts[1];
+  it("Should succesfully end the betting and give all money to the player that bet on 1", async () => {
+    const winner = playerAccounts[0];
+    const loser = playerAccounts[1];
 
-    const instance = await Casino.deployed();
+    const winnerBalanceBefore = parseInt(await web3.eth.getBalance(winner), 0);
+    const loserBalanceBefore = parseInt(await web3.eth.getBalance(loser), 0);
 
-    await instance.bet(5, {
-      from: account2,
-      value: web3.utils.toWei("0.5", "ether"),
-    });
+    await instance.setTestWinningNumber(1, { from: ownerAccount });
+    await instance.completeBettingRound({ from: ownerAccount });
 
-    const player = await instance.getPlayers();
-    // const playerInfo = await instance.playerInfo.call(account2);
-    // const returnedNumSelected = playerInfo["numberSelected"]["words"][0];
+    const winnerBalanceAfter = parseInt(await web3.eth.getBalance(winner), 0);
+    const loserBalanceAfter = parseInt(await web3.eth.getBalance(loser), 0);
 
-    // assert.isTrue(player === account2);
-    // assert.isTrue(returnedNumSelected === 5);
-
-    console.log("FIN", player);
-
-    assert.isTrue(true);
+    assert.isAbove(winnerBalanceAfter, winnerBalanceBefore);
+    assert.equal(loserBalanceBefore, loserBalanceAfter);
   });
 });
