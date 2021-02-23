@@ -5,3 +5,7 @@ Was following this tutorial here https://medium.com/ethereum-developers/the-ulti
 The code there was from 3 years ago so it doesn't necessarily place nice with recent solidty versions.
 
 Altered it to work with more recent versions of solidity and adding manual truffle tests to get comfortable with them so remix ide is not required.
+
+## To run tests
+1. Run ganache in one window `ganache-cli`
+2. Run tests `truffle test`
